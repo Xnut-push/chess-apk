@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0e0b08">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp"
+        android:gravity="center_horizontal">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="♟ CHESS ANALYZER"
+            android:textColor="#e8b84b"
+            android:textSize="26sp"
+            android:letterSpacing="0.15"
+            android:layout_marginTop="40dp"
+            android:layout_marginBottom="8dp"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Powered by Claude Vision + Stockfish"
+            android:textColor="#7a6040"
+            android:textSize="12sp"
+            android:layout_marginBottom="40dp"/>
+
+        <!-- API KEY -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="API KEY DE ANTHROPIC"
+            android:textColor="#c8952e"
+            android:textSize="11sp"
+            android:letterSpacing="0.12"
+            android:layout_marginBottom="8dp"/>
+
+        <EditText
+            android:id="@+id/apiKeyInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="sk-ant-..."
+            android:textColor="#ede0c8"
+            android:textColorHint="#3a2a1a"
+            android:background="@drawable/input_bg"
+            android:padding="14dp"
+            android:inputType="textPassword"
+            android:layout_marginBottom="24dp"/>
+
+        <!-- ELO -->
+        <TextView
+            android:id="@+id/eloLabel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="ELO: 1500 — Intermedio"
+            android:textColor="#c8952e"
+            android:textSize="11sp"
+            android:letterSpacing="0.12"
+            android:layout_marginBottom="8dp"/>
+
+        <SeekBar
+            android:id="@+id/eloSlider"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="100"
+            android:progress="32"
+            android:progressTint="#e8b84b"
+            android:thumbTint="#e8b84b"
+            android:layout_marginBottom="24dp"/>
+
+        <!-- SIDE -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="JUEGO CON"
+            android:textColor="#c8952e"
+            android:textSize="11sp"
+            android:letterSpacing="0.12"
+            android:layout_marginBottom="8dp"/>
+
+        <RadioGroup
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="32dp">
+
+            <RadioButton
+                android:id="@+id/sideWhite"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="♔ Blancas"
+                android:textColor="#ede0c8"
+                android:buttonTint="#e8b84b"
+                android:checked="true"/>
+
+            <RadioButton
+                android:id="@+id/sideBlack"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="♚ Negras"
+                android:textColor="#ede0c8"
+                android:buttonTint="#e8b84b"/>
+        </RadioGroup>
+
+        <!-- STATUS -->
+        <TextView
+            android:id="@+id/statusText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="⚠ Se necesita permiso de overlay"
+            android:textColor="#f0c030"
+            android:textSize="13sp"
+            android:gravity="center"
+            android:layout_marginBottom="16dp"/>
+
+        <!-- START -->
+        <Button
+            android:id="@+id/startBtn"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="⚔ INICIAR OVERLAY"
+            android:textColor="#e8b84b"
+            android:letterSpacing="0.1"
+            android:background="@drawable/btn_primary_bg"/>
+
+    </LinearLayout>
+</ScrollView>
