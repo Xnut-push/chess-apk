@@ -60,12 +60,11 @@ class MainActivity : AppCompatActivity() {
                 .apply()
 
             if (!Settings.canDrawOverlays(this)) {
-                statusText.text = "⚠ Activa permiso de overlay"
-                startActivityForResult(
-                    Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")),
-                    OVERLAY_PERMISSION_REQ
-                )
+                statusText.text = "⚠ Otorga permiso de overlay y vuelve a tocar Iniciar"
+                val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
+                startActivity(intent)
             } else {
+                statusText.text = "⏳ Solicitando permiso de grabación..."
                 requestScreenCapture()
             }
         }
@@ -78,21 +77,24 @@ class MainActivity : AppCompatActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        when (requestCode) {
-            OVERLAY_PERMISSION_REQ -> {
-                if (Settings.canDrawOverlays(this)) requestScreenCapture()
-            }
-            CAPTURE_REQ -> {
-                if (resultCode == RESULT_OK && data != null) {
-                    // Start foreground service first, then pass projection
-                    val serviceIntent = Intent(this, OverlayService::class.java).apply {
-                        putExtra("resultCode", resultCode)
-                        putExtra("data", data)
-                    }
-                    startForegroundService(serviceIntent)
-                    finish()
+        if (requestCode == CAPTURE_REQ) {
+            if (resultCode == RESULT_OK && data != null) {
+                val serviceIntent = Intent(this, OverlayService::class.java).apply {
+                    putExtra("resultCode", resultCode)
+                    putExtra("data", data)
                 }
+                startForegroundService(serviceIntent)
+                finish()
+            } else {
+                findViewById<TextView>(R.id.statusText).text = "⚠ Permiso de grabación denegado"
             }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (Settings.canDrawOverlays(this)) {
+            findViewById<TextView>(R.id.statusText).text = "✅ Overlay OK — toca Iniciar"
         }
     }
 }
