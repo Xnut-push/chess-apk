@@ -23,8 +23,6 @@ import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.TimeUnit
 import com.github.bhlangonijr.chesslib.Board
-import com.github.bhlangonijr.chesslib.move.Move
-import com.github.bhlangonijr.chesslib.Square
 
 class OverlayService : Service() {
 
@@ -34,29 +32,21 @@ class OverlayService : Service() {
     private var virtualDisplay: VirtualDisplay? = null
     private var imageReader: ImageReader? = null
 
-    // Views
     private var fabView: View? = null
     private var selectorView: View? = null
     private var arrowView: ArrowOverlayView? = null
     private var statusPanel: View? = null
 
-    // Region
     private var regionRect = Rect()
     private var regionConfirmed = false
 
-    // Drag state for FAB
     private var fabX = 100f; private var fabY = 300f
     private var dX = 0f; private var dY = 0f
-
-    // Selector drag handles
     private var selLeft = 100; private var selTop = 200
     private var selRight = 600; private var selBottom = 700
-    private var draggingHandle = -1
 
     private val handler = Handler(Looper.getMainLooper())
     private var analyzing = false
-    private var currentFen = ""
-    private var bestMoves = listOf<String>()
 
     companion object {
         const val CHANNEL_ID = "chess_overlay"
@@ -78,31 +68,27 @@ class OverlayService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val resultCode = intent?.getIntExtra("resultCode", -1) ?: -1
         val data = intent?.getParcelableExtra<Intent>("data")
-
         if (resultCode != -1 && data != null) {
             val mgr = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
             mediaProjection = mgr.getMediaProjection(resultCode, data)
-            setupImageReader()
+            handler.postDelayed({ setupImageReader() }, 1000)
         }
-
         showFab()
         return START_STICKY
     }
 
-    // ─── FAB (floating button) ───────────────────────────────────────
     @SuppressLint("ClickableViewAccessibility")
     private fun showFab() {
+        if (fabView != null) return
         val params = WindowManager.LayoutParams(
             120, 120,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
         ).apply { gravity = Gravity.TOP or Gravity.START; x = fabX.toInt(); y = fabY.toInt() }
-
         val fab = LayoutInflater.from(this).inflate(R.layout.fab_button, null)
         fabView = fab
-
-        fab.setOnTouchListener { v, e ->
+        fab.setOnTouchListener { _, e ->
             when (e.action) {
                 MotionEvent.ACTION_DOWN -> { dX = params.x - e.rawX; dY = params.y - e.rawY }
                 MotionEvent.ACTION_MOVE -> {
@@ -112,7 +98,7 @@ class OverlayService : Service() {
                     wm.updateViewLayout(fab, params)
                 }
                 MotionEvent.ACTION_UP -> {
-                    if (Math.abs(e.rawX + dX - params.x) < 5) {
+                    if (Math.abs(e.rawX + dX - fabX) < 10 && Math.abs(e.rawY + dY - fabY) < 10) {
                         if (regionConfirmed) triggerAnalysis() else showSelector()
                     }
                 }
@@ -122,7 +108,6 @@ class OverlayService : Service() {
         wm.addView(fab, params)
     }
 
-    // ─── REGION SELECTOR ────────────────────────────────────────────
     @SuppressLint("ClickableViewAccessibility")
     private fun showSelector() {
         val params = WindowManager.LayoutParams(
@@ -131,15 +116,10 @@ class OverlayService : Service() {
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
         ).apply { gravity = Gravity.TOP or Gravity.START; x = 0; y = 0 }
-
-        val sel = SelectorView(this) { left, top, right, bottom ->
-            selLeft = left; selTop = top; selRight = right; selBottom = bottom
+        val sel = SelectorView(this) { l, t, r, b ->
+            selLeft = l; selTop = t; selRight = r; selBottom = b
         }
         selectorView = sel
-
-        sel.setOnTouchListener { _, _ -> false }
-
-        // Control buttons row
         val btnParams = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -147,7 +127,6 @@ class OverlayService : Service() {
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
         ).apply { gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL; y = 80 }
-
         val btnRow = LayoutInflater.from(this).inflate(R.layout.selector_controls, null)
         btnRow.findViewById<Button>(R.id.btnConfirm).setOnClickListener {
             regionRect = Rect(selLeft, selTop, selRight, selBottom)
@@ -160,7 +139,6 @@ class OverlayService : Service() {
         btnRow.findViewById<Button>(R.id.btnCancel).setOnClickListener {
             removeSelectorViews(sel, btnRow)
         }
-
         wm.addView(sel, params)
         wm.addView(btnRow, btnParams)
     }
@@ -170,22 +148,21 @@ class OverlayService : Service() {
         selectorView = null
     }
 
-    // ─── ARROW OVERLAY ──────────────────────────────────────────────
     private fun showArrowOverlay() {
+        if (arrowView != null) return
         val params = WindowManager.LayoutParams(
             metrics.widthPixels, metrics.heightPixels,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
             PixelFormat.TRANSLUCENT
         ).apply { gravity = Gravity.TOP or Gravity.START }
-
         val av = ArrowOverlayView(this)
         arrowView = av
         wm.addView(av, params)
     }
 
-    // ─── STATUS PANEL ───────────────────────────────────────────────
     private fun showStatusPanel() {
+        if (statusPanel != null) return
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -193,20 +170,16 @@ class OverlayService : Service() {
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
         ).apply { gravity = Gravity.TOP or Gravity.END; x = 8; y = 80 }
-
         val panel = LayoutInflater.from(this).inflate(R.layout.status_panel, null)
         statusPanel = panel
-
         panel.findViewById<ImageButton>(R.id.btnEdit).setOnClickListener {
             regionConfirmed = false
             removeArrowOverlay()
             try { wm.removeView(panel) } catch (_: Exception) {}
+            statusPanel = null
             showSelector()
         }
-        panel.findViewById<ImageButton>(R.id.btnClose).setOnClickListener {
-            stopSelf()
-        }
-
+        panel.findViewById<ImageButton>(R.id.btnClose).setOnClickListener { stopSelf() }
         wm.addView(panel, params)
     }
 
@@ -215,12 +188,13 @@ class OverlayService : Service() {
         arrowView = null
     }
 
-    // ─── SCREEN CAPTURE ─────────────────────────────────────────────
     private fun setupImageReader() {
+        imageReader?.close()
         imageReader = ImageReader.newInstance(
             metrics.widthPixels, metrics.heightPixels,
             PixelFormat.RGBA_8888, 2
         )
+        virtualDisplay?.release()
         virtualDisplay = mediaProjection?.createVirtualDisplay(
             "ChessCapture",
             metrics.widthPixels, metrics.heightPixels, metrics.densityDpi,
@@ -230,6 +204,7 @@ class OverlayService : Service() {
     }
 
     private fun captureRegion(): Bitmap? {
+        Thread.sleep(300)
         val image = imageReader?.acquireLatestImage() ?: return null
         return try {
             val planes = image.planes
@@ -242,10 +217,13 @@ class OverlayService : Service() {
                 metrics.heightPixels, Bitmap.Config.ARGB_8888
             )
             fullBmp.copyPixelsFromBuffer(buffer)
+            val safeLeft = regionRect.left.coerceAtLeast(0)
+            val safeTop = regionRect.top.coerceAtLeast(0)
+            val safeRight = regionRect.right.coerceAtMost(fullBmp.width)
+            val safeBottom = regionRect.bottom.coerceAtMost(fullBmp.height)
             val cropped = Bitmap.createBitmap(
-                fullBmp,
-                regionRect.left, regionRect.top,
-                regionRect.width(), regionRect.height()
+                fullBmp, safeLeft, safeTop,
+                safeRight - safeLeft, safeBottom - safeTop
             )
             fullBmp.recycle()
             cropped
@@ -254,26 +232,24 @@ class OverlayService : Service() {
         }
     }
 
-    // ─── ANALYSIS ───────────────────────────────────────────────────
     private fun triggerAnalysis() {
         if (analyzing) return
         analyzing = true
         updateStatus("🔍 Analizando…")
-
         Thread {
             try {
                 val bmp = captureRegion()
-                if (bmp == null) { handler.post { updateStatus("❌ Sin captura"); analyzing = false }; return@Thread }
-
+                if (bmp == null) {
+                    handler.post { updateStatus("❌ Sin captura — reintenta"); analyzing = false }
+                    return@Thread
+                }
                 val fen = sendToClaudeVision(bmp)
                 bmp.recycle()
-
-                if (fen.isNullOrEmpty()) { handler.post { updateStatus("❌ No detecté tablero"); analyzing = false }; return@Thread }
-
-                currentFen = fen
-                val moves = analyzeWithStockfish(fen)
-                bestMoves = moves
-
+                if (fen.isNullOrEmpty() || !fen.contains("/")) {
+                    handler.post { updateStatus("❌ No detecté tablero"); analyzing = false }
+                    return@Thread
+                }
+                val moves = analyzeWithChesslib(fen)
                 handler.post {
                     drawArrows(moves)
                     updateStatus("✅ ${moves.firstOrNull() ?: "Sin jugadas"}")
@@ -289,16 +265,10 @@ class OverlayService : Service() {
         val prefs = getSharedPreferences("chess_prefs", MODE_PRIVATE)
         val apiKey = prefs.getString("api_key", "") ?: return null
         val side = prefs.getString("side", "white") ?: "white"
-
         val out = ByteArrayOutputStream()
         bmp.compress(Bitmap.CompressFormat.JPEG, 85, out)
         val b64 = android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
-
-        val prompt = """You are a chess position detector. 
-Look at this chess board image and return ONLY the FEN notation of the current position.
-The player to move is $side.
-Return ONLY the FEN string, nothing else. Example: rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"""
-
+        val prompt = "You are a chess position detector. Look at this chess board image and return ONLY the FEN notation. The player to move is $side. Return ONLY the FEN string, nothing else."
         val body = JSONObject().apply {
             put("model", "claude-sonnet-4-20250514")
             put("max_tokens", 100)
@@ -314,20 +284,15 @@ Return ONLY the FEN string, nothing else. Example: rnbqkbnr/pppppppp/8/8/4P3/8/P
                                 put("data", b64)
                             })
                         })
-                        put(JSONObject().apply {
-                            put("type", "text")
-                            put("text", prompt)
-                        })
+                        put(JSONObject().apply { put("type", "text"); put("text", prompt) })
                     })
                 })
             })
         }
-
         val client = OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .build()
-
         val request = Request.Builder()
             .url("https://api.anthropic.com/v1/messages")
             .addHeader("x-api-key", apiKey)
@@ -335,24 +300,19 @@ Return ONLY the FEN string, nothing else. Example: rnbqkbnr/pppppppp/8/8/4P3/8/P
             .addHeader("content-type", "application/json")
             .post(body.toString().toRequestBody("application/json".toMediaType()))
             .build()
-
         val resp = client.newCall(request).execute()
         val json = JSONObject(resp.body!!.string())
         return json.getJSONArray("content").getJSONObject(0).getString("text").trim()
     }
 
-    private fun analyzeWithStockfish(fen: String): List<String> {
+    private fun analyzeWithChesslib(fen: String): List<String> {
         return try {
             val board = Board()
             board.loadFromFen(fen)
-            val moves = board.legalMoves()
-            // Simple eval: return top 3 moves in SAN notation
-            moves.take(3).map { move ->
+            board.legalMoves().take(3).map { move ->
                 "${move.from.value().lowercase()}${move.to.value().lowercase()}"
             }
-        } catch (e: Exception) {
-            emptyList()
-        }
+        } catch (e: Exception) { emptyList() }
     }
 
     private fun drawArrows(moves: List<String>) {
@@ -361,10 +321,11 @@ Return ONLY the FEN string, nothing else. Example: rnbqkbnr/pppppppp/8/8/4P3/8/P
     }
 
     private fun updateStatus(text: String) {
-        statusPanel?.findViewById<TextView>(R.id.statusText)?.text = text
+        handler.post {
+            statusPanel?.findViewById<TextView>(R.id.statusText)?.text = text
+        }
     }
 
-    // ─── CLEANUP ─────────────────────────────────────────────────────
     override fun onDestroy() {
         super.onDestroy()
         listOf(fabView, selectorView, arrowView, statusPanel).forEach {
