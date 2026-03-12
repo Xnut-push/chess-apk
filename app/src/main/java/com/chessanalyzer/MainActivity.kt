@@ -1,9 +1,7 @@
 package com.chessanalyzer
 
-import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
-import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
@@ -12,18 +10,14 @@ import androidx.appcompat.app.AppCompatActivity
 
 class MainActivity : AppCompatActivity() {
 
-    private val OVERLAY_PERMISSION_REQ = 1001
-    private val CAPTURE_REQ = 1002
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         val eloLabel = findViewById<TextView>(R.id.eloLabel)
         val eloSlider = findViewById<SeekBar>(R.id.eloSlider)
-        val sideWhite = findViewById<android.widget.RadioButton>(R.id.sideWhite)
-        val sideBlack = findViewById<android.widget.RadioButton>(R.id.sideBlack)
-        val apiKeyInput = findViewById<android.widget.EditText>(R.id.apiKeyInput)
+        val sideWhite = findViewById<RadioButton>(R.id.sideWhite)
+        val apiKeyInput = findViewById<EditText>(R.id.apiKeyInput)
         val statusText = findViewById<TextView>(R.id.statusText)
         val startBtn = findViewById<Button>(R.id.startBtn)
 
@@ -37,7 +31,6 @@ class MainActivity : AppCompatActivity() {
         eloSlider.max = eloValues.size - 1
         eloSlider.progress = 4
         eloLabel.text = "ELO: ${eloValues[4]} — ${eloNames[4]}"
-
         eloSlider.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(sb: SeekBar?, p: Int, u: Boolean) {
                 eloLabel.text = "ELO: ${eloValues[p]} — ${eloNames[p]}"
@@ -49,45 +42,23 @@ class MainActivity : AppCompatActivity() {
 
         startBtn.setOnClickListener {
             val apiKey = apiKeyInput.text.toString().trim()
-            if (apiKey.isEmpty()) {
-                statusText.text = "⚠ Ingresa tu API key"
-                return@setOnClickListener
-            }
+            if (apiKey.isEmpty()) { statusText.text = "⚠ Ingresa tu API key"; return@setOnClickListener }
             val side = if (sideWhite.isChecked) "white" else "black"
-            prefs.edit()
-                .putString("api_key", apiKey)
-                .putString("side", side)
-                .apply()
+            prefs.edit().putString("api_key", apiKey).putString("side", side).apply()
 
             if (!Settings.canDrawOverlays(this)) {
                 statusText.text = "⚠ Otorga permiso de overlay y vuelve a tocar Iniciar"
-                val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
-                startActivity(intent)
-            } else {
-                statusText.text = "⏳ Solicitando permiso de grabación..."
-                requestScreenCapture()
+                startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+                return@setOnClickListener
             }
-        }
-    }
 
-    private fun requestScreenCapture() {
-        val mgr = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-        startActivityForResult(mgr.createScreenCaptureIntent(), CAPTURE_REQ)
-    }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == CAPTURE_REQ) {
-            if (resultCode == RESULT_OK && data != null) {
-                val serviceIntent = Intent(this, OverlayService::class.java).apply {
-                    putExtra("resultCode", resultCode)
-                    putExtra("data", data)
-                }
-                startForegroundService(serviceIntent)
-                finish()
-            } else {
-                findViewById<TextView>(R.id.statusText).text = "⚠ Permiso de grabación denegado"
+            // Start foreground service first, then request capture from within
+            statusText.text = "⏳ Iniciando servicio..."
+            val serviceIntent = Intent(this, OverlayService::class.java).apply {
+                putExtra("requestCapture", true)
             }
+            startForegroundService(serviceIntent)
+            finish()
         }
     }
 
