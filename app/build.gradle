@@ -3,6 +3,12 @@ plugins {
     id 'kotlin-android'
 }
 
+repositories {
+    google()
+    mavenCentral()
+    maven { url "https://jitpack.io" }
+}
+
 android {
     compileSdk 34
     namespace "com.chessanalyzer"
