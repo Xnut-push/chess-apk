@@ -5,19 +5,16 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION"/>
     <uses-permission android:name="android.permission.INTERNET"/>
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
 
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
-        android:label="Chess Analyzer"
-        android:theme="@style/Theme.ChessAnalyzer"
-        android:supportsRtl="true">
+        android:label="@string/app_name"
+        android:theme="@style/Theme.ChessAnalyzer">
 
         <activity
             android:name=".MainActivity"
-            android:exported="true"
-            android:theme="@style/Theme.ChessAnalyzer">
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
@@ -26,13 +23,13 @@
 
         <activity
             android:name=".CaptureRequestActivity"
-            android:exported="false"
-            android:theme="@style/Theme.Transparent"/>
+            android:theme="@style/Theme.Transparent"
+            android:exported="false"/>
 
         <service
             android:name=".OverlayService"
-            android:exported="false"
-            android:foregroundServiceType="mediaProjection"/>
+            android:foregroundServiceType="mediaProjection"
+            android:exported="false"/>
 
     </application>
 </manifest>
