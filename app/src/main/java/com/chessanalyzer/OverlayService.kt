@@ -2,7 +2,6 @@ package com.chessanalyzer
 
 import android.annotation.SuppressLint
 import android.app.*
-import android.content.Context
 import android.content.Intent
 import android.graphics.*
 import android.hardware.display.DisplayManager
@@ -31,20 +30,16 @@ class OverlayService : Service() {
     private var mediaProjection: MediaProjection? = null
     private var virtualDisplay: VirtualDisplay? = null
     private var imageReader: ImageReader? = null
-
     private var fabView: View? = null
     private var selectorView: View? = null
     private var arrowView: ArrowOverlayView? = null
     private var statusPanel: View? = null
-
     private var regionRect = Rect()
     private var regionConfirmed = false
-
     private var fabX = 100f; private var fabY = 300f
     private var dX = 0f; private var dY = 0f
     private var selLeft = 100; private var selTop = 200
     private var selRight = 600; private var selBottom = 700
-
     private val handler = Handler(Looper.getMainLooper())
     private var analyzing = false
 
@@ -66,13 +61,16 @@ class OverlayService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val resultCode = intent?.getIntExtra("resultCode", -1) ?: -1
-        val data = intent?.getParcelableExtra<Intent>("data")
         val requestCapture = intent?.getBooleanExtra("requestCapture", false) ?: false
         if (requestCapture) {
-            startActivity(Intent(this, CaptureRequestActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            handler.postDelayed({
+                startActivity(Intent(this, CaptureRequestActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            }, 500)
             return START_STICKY
         }
+        val resultCode = intent?.getIntExtra("resultCode", -1) ?: -1
+        val data = intent?.getParcelableExtra<Intent>("data")
         if (resultCode != -1 && data != null) {
             val mgr = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
             mediaProjection = mgr.getMediaProjection(resultCode, data)
@@ -226,15 +224,10 @@ class OverlayService : Service() {
             val safeTop = regionRect.top.coerceAtLeast(0)
             val safeRight = regionRect.right.coerceAtMost(fullBmp.width)
             val safeBottom = regionRect.bottom.coerceAtMost(fullBmp.height)
-            val cropped = Bitmap.createBitmap(
-                fullBmp, safeLeft, safeTop,
-                safeRight - safeLeft, safeBottom - safeTop
-            )
+            val cropped = Bitmap.createBitmap(fullBmp, safeLeft, safeTop, safeRight - safeLeft, safeBottom - safeTop)
             fullBmp.recycle()
             cropped
-        } finally {
-            image.close()
-        }
+        } finally { image.close() }
     }
 
     private fun triggerAnalysis() {
@@ -245,7 +238,7 @@ class OverlayService : Service() {
             try {
                 val bmp = captureRegion()
                 if (bmp == null) {
-                    handler.post { updateStatus("❌ Sin captura — reintenta"); analyzing = false }
+                    handler.post { updateStatus("❌ Sin captura"); analyzing = false }
                     return@Thread
                 }
                 val fen = sendToClaudeVision(bmp)
@@ -326,9 +319,7 @@ class OverlayService : Service() {
     }
 
     private fun updateStatus(text: String) {
-        handler.post {
-            statusPanel?.findViewById<TextView>(R.id.statusText)?.text = text
-        }
+        handler.post { statusPanel?.findViewById<TextView>(R.id.statusText)?.text = text }
     }
 
     override fun onDestroy() {
